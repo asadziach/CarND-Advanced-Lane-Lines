@@ -100,7 +100,26 @@ def main():
         hsv   = hsv_select(img, thresh=(50,255))
         preprocessImage[(gradx==1) & (grady==1) | (hls==1) & (hsv==1) ] = 255
         
-        result = preprocessImage
+        img_size = (img.shape[1], img.shape[0])
+        bot_width = 0.76
+        mid_width = 0.08
+        height_pct = 0.62
+        bottom_trim = 0.935
+        
+        src = np.float32([[img.shape[1]*(.5-mid_width/2),img.shape[0]*height_pct],
+                          [img.shape[1]*(.5+mid_width/2),img.shape[0]*height_pct],
+                          [img.shape[1]*(.5+bot_width/2),img.shape[0]*bottom_trim],
+                          [img.shape[1]*(.5-bot_width/2),img.shape[0]*bottom_trim]])
+        offset = img_size[0]*.25
+        dst = np.float32([[offset, 0], [img_size[0]-offset, 0], 
+                          [img_size[0]-offset, img_size[1]],
+                          [offset, img_size[1]]])
+        
+        M = cv2.getPerspectiveTransform(src, dst)
+        Minv = cv2.getPerspectiveTransform(dst, src)
+        wrapped = cv2.warpPerspective(preprocessImage, M, img_size, flags=cv2.INTER_LINEAR)
+        
+        result = wrapped
         
         write_file = './test_images/tracked' + str(idx) + '.jpg'
         cv2.imwrite(write_file, result)
