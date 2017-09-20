@@ -8,6 +8,7 @@ import cv2
 import glob
 import pickle
 import glob
+from tracker import tracker
 
 # Define a function that thresholds the S-channel of HLS
 def hls_select(img, thresh=(0, 255)):
@@ -82,6 +83,12 @@ def dir_threshold(img, sobel_kernel=3, thresh=(0, np.pi/2)):
     # Return the binary image
     return binary_output
 
+def window_mask(width, height, img_ref, center,level):
+    output = np.zeros_like(img_ref)
+    output[int(img_ref.shape[0]-(level+1)*height):int(img_ref.shape[0]-level*height),
+           max(0,int(center-width/2)):min(int(center+width/2),img_ref.shape[1])] = 1
+    return output
+
 def main():
     dest_pickle = pickle.load( open("camera_cal/wide_dist_pickle.p", "rb"  ))
     mtx = dest_pickle["mtx"]
@@ -101,6 +108,7 @@ def main():
         preprocessImage[(gradx==1) & (grady==1) | (hls==1) & (hsv==1) ] = 255
         
         img_size = (img.shape[1], img.shape[0])
+        # Obtained empirically to map trapezoid to birds eye view
         bot_width = 0.76
         mid_width = 0.08
         height_pct = 0.62
@@ -119,8 +127,30 @@ def main():
         Minv = cv2.getPerspectiveTransform(dst, src)
         wrapped = cv2.warpPerspective(preprocessImage, M, img_size, flags=cv2.INTER_LINEAR)
         
-        result = wrapped
+        # Obtained empirically
+        window_width =25
+        window_height = 80
+        curve_centers = tracker(window_size=(window_width,window_height),window_margin=25,
+                                dpm=(10/720, 4/384),smoothing=15)
         
+        window_centroids = curve_centers.get_left_right_centroids(wrapped)
+        
+        l_points = np.zeros_like(wrapped)
+        r_points = np.zeros_like(wrapped)
+        
+        for level in range(0,len(window_centroids)):
+            l_mask = window_mask(window_width,window_height,wrapped,window_centroids[level][0],level)
+            r_mask = window_mask(window_width,window_height,wrapped,window_centroids[level][1],level)
+            l_points[(l_points == 255) | ((l_mask == 1) ) ] = 255
+            r_points[(r_points == 255) | ((r_mask == 1) ) ] = 255
+        
+        # temp visual debug
+        template = np.array(r_points+l_points,np.uint8) 
+        zero_channel = np.zeros_like(template)  
+        template = np.array(cv2.merge((zero_channel,template,zero_channel)),np.uint8) 
+        warpage = np.array(cv2.merge((wrapped,wrapped,wrapped)),np.uint8) 
+        result = cv2.addWeighted(warpage, 1, template, 0.5, 0.0) 
+         
         write_file = './test_images/tracked' + str(idx) + '.jpg'
         cv2.imwrite(write_file, result)
             
