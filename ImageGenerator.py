@@ -100,6 +100,9 @@ def main():
         img = cv2.imread(fname)
         img = cv2.undistort(img, mtx, dist, None, mtx)
         
+        #Debug point
+        cv2.imwrite('./test_images/undistorted' + str(idx) + '.jpg', img)
+        
         preprocessImage = np.zeros_like(img[:,:,0])
         gradx = abs_sobel_thresh(img, orient='x', thresh=(12,255))
         grady = abs_sobel_thresh(img, orient='x', thresh=(25,255))
@@ -107,6 +110,9 @@ def main():
         hsv   = hsv_select(img, thresh=(50,255))
         preprocessImage[(gradx==1) & (grady==1) | (hls==1) & (hsv==1) ] = 255
         
+        #Debug point
+        cv2.imwrite('./test_images/preprocessImage' + str(idx) + '.jpg', preprocessImage)
+                
         img_size = (img.shape[1], img.shape[0])
         # Obtained empirically to map trapezoid to birds eye view
         bot_width = 0.76
@@ -127,6 +133,9 @@ def main():
         Minv = cv2.getPerspectiveTransform(dst, src)
         wrapped = cv2.warpPerspective(preprocessImage, M, img_size, flags=cv2.INTER_LINEAR)
         
+        #Debug point
+        cv2.imwrite('./test_images/wrapped' + str(idx) + '.jpg', wrapped)
+                
         # Obtained empirically
         window_width =25
         window_height = 80
@@ -153,6 +162,8 @@ def main():
          
         write_file = './test_images/tracked' + str(idx) + '.jpg'
         cv2.imwrite(write_file, result)
+        
+     
             
 if __name__ == '__main__':
     main()
