@@ -101,6 +101,7 @@ def preprocess(image):
     preprocessImage[(gradx==1) & (grady==1) | (hls==1) & (hsv==1) ] = 255    
     return preprocessImage
 
+# Taken from class notes.
 def birds_eye_perspective(image):
     # Obtained empirically to map trapezoid to birds eye view
     bot_width = 0.76
@@ -191,6 +192,63 @@ def draw_visual_debug(image, window_centroids, window_size):
     template = np.array(cv2.merge((zero_channel,template,zero_channel)),np.uint8) 
     warpage = np.array(cv2.merge((image,image,image)),np.uint8) 
     return cv2.addWeighted(warpage, 1, template, 0.5, 0.0) 
+
+def fit_lane_lines(image_height, window_centroids, window_size):
+    
+    left_x = window_centroids[:,0]
+    right_x = window_centroids[:,1]
+    
+    yvals = np.arange(0, image_height)
+    window_width = window_size[0]
+    window_height = window_size[1]        
+    res_yvals = np.arange(image_height-window_height/2, 0, -window_height)
+    left_fit = np.polyfit(res_yvals, left_x, 2)
+    left_poly = np.poly1d(left_fit)
+    left_fitx = np.int32(left_poly(yvals))
+
+    right_fit = np.polyfit(res_yvals, right_x, 2)
+    right_poly = np.poly1d(right_fit)
+    right_fitx = np.int32(right_poly(yvals))
+    
+    left_lane = np.array(list(zip(np.concatenate((left_fitx - window_width/2,left_fitx[::-1]+window_width/2), axis=0),
+                                  np.concatenate((yvals,yvals[::-1]),axis=0))))
+    right_lane = np.array(list(zip(np.concatenate((right_fitx - window_width/2,right_fitx[::-1]+window_width/2), axis=0),
+                                   np.concatenate((yvals,yvals[::-1]),axis=0))))
+    centre_line = np.array(list(zip(np.concatenate((left_fitx + window_width/2,right_fitx[::-1]-window_width/2), axis=0),
+                                   np.concatenate((yvals,yvals[::-1]),axis=0))))
+    
+    camera_center = (left_fitx[-1] + right_fitx[-1])/2 
+    
+    return (left_lane, centre_line, right_lane), res_yvals, camera_center 
+
+def draw_lane_lines(image, m_inv, lanes, colors):
+    left_color, right_color = colors
+    left, centre, right = lanes
+    img_size = (image.shape[1], image.shape[0])
+    
+    fg = np.zeros_like(image)
+    cv2.fillPoly(fg,np.int32([left]),left_color)
+    cv2.fillPoly(fg,np.int32([right]),right_color)
+    draw_driveable_surface(fg, centre)
+    fg = cv2.warpPerspective(fg, m_inv, img_size, flags=cv2.INTER_LINEAR)
+    
+    bg = np.zeros_like(image)
+    cv2.fillPoly(bg,np.int32([left]),[255,255,255])
+    cv2.fillPoly(bg,np.int32([right]),[255,255,255])
+    bg = cv2.warpPerspective(bg, m_inv, img_size, flags=cv2.INTER_LINEAR)
+    
+    base = cv2.addWeighted(image, 1.0, bg, -1.0, 0.0) 
+    result = cv2.addWeighted(base, 1.0, fg, 0.7, 0.0) 
+            
+    return result, fg   
+
+def draw_driveable_surface(image, centre):
+    cv2.fillPoly(image,np.int32([centre]),color=[0,255,0])
+
+def overlay_on_binary(base, overlay):
+    warpage = np.array(cv2.merge((base,base,base)),np.uint8)
+    return cv2.addWeighted(warpage, 1, overlay, 0.5, 0.0)
+        
             
 def main():
     dest_pickle = pickle.load( open("camera_cal/wide_dist_pickle.p", "rb"  ))
@@ -210,16 +268,26 @@ def main():
         #Debug point
         cv2.imwrite('./test_images/preprocessed' + str(idx) + '.jpg', preprocessed)
                 
-        wrapped, _ = birds_eye_perspective(preprocessed)
+        wrapped, m_inv = birds_eye_perspective(preprocessed)
 
         #Debug point
         cv2.imwrite('./test_images/wrapped' + str(idx) + '.jpg', wrapped)
         
         window_size = (25,80)     # Obtained empirically
-        window_centroids = get_left_right_centroids(wrapped, window_size)   
-        tracked = draw_visual_debug(wrapped, window_centroids, window_size)
-         
+        window_centroids = get_left_right_centroids(wrapped, window_size)
+        
+        #Debug point   
+        tracked = draw_visual_debug(wrapped, window_centroids, window_size) 
         cv2.imwrite('./test_images/tracked' + str(idx) + '.jpg', tracked)
+        
+        lanes, yvals, camera_center = fit_lane_lines(image.shape[0], window_centroids, window_size)
+        result, lane_lines_only = draw_lane_lines(image, m_inv, lanes, colors=([255,0,0],[0,0,255]))
+        
+        #Debug point
+        drawn = overlay_on_binary(wrapped, lane_lines_only)
+        cv2.imwrite('./test_images/drawn' + str(idx) + '.jpg', drawn)
+          
+
         
 if __name__ == '__main__':
     main()
