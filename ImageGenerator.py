@@ -209,7 +209,7 @@ def fit_lane_lines(image_height, window_centroids, window_size):
     right_fit = np.polyfit(res_yvals, right_x, 2)
     right_poly = np.poly1d(right_fit)
     right_fitx = np.int32(right_poly(yvals))
-    
+    # Fancy array magic to encapsulate list values
     left_lane = np.array(list(zip(np.concatenate((left_fitx - window_width/2,left_fitx[::-1]+window_width/2), axis=0),
                                   np.concatenate((yvals,yvals[::-1]),axis=0))))
     right_lane = np.array(list(zip(np.concatenate((right_fitx - window_width/2,right_fitx[::-1]+window_width/2), axis=0),
@@ -249,6 +249,28 @@ def overlay_on_binary(base, overlay):
     warpage = np.array(cv2.merge((base,base,base)),np.uint8)
     return cv2.addWeighted(warpage, 1, overlay, 0.5, 0.0)
         
+def radius_of_curvature(image_height, dpm, window_centroids, res_yvals):
+
+    left_x = window_centroids[:,0]
+    curve_fit_cr = np.polyfit(np.array(res_yvals,np.float32)*dpm[1], np.array(left_x,np.float32)*dpm[0], 2)
+    left = ((1+(2*curve_fit_cr[0]*res_yvals[-1]*dpm[1] + curve_fit_cr[1])**2)**1.5) / np.absolute(2*curve_fit_cr[0])
+    
+    right_x = window_centroids[:,1]
+    curve_fit_cr = np.polyfit(np.array(res_yvals,np.float32)*dpm[1], np.array(right_x,np.float32)*dpm[0], 2)
+    right = ((1+(2*curve_fit_cr[0]*res_yvals[-1]*dpm[1] + curve_fit_cr[1])**2)**1.5) / np.absolute(2*curve_fit_cr[0])    
+    return (left+right)/2 
+ 
+def annotate_results(image, camera_center, dpm, curve_radii):
+    
+    curve_radius  = curve_radii
+    center_diff = (camera_center-image.shape[1]/2)*dpm[0]
+    side_pos = 'right' if center_diff <= 0 else'left'
+
+    # Put the text on the resulting image
+    cv2.putText(image, 'Radius of Curvature: '+ str(round(curve_radius,3))+'m',
+                (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+    cv2.putText(image, 'Camera: '+str(abs(round(center_diff,3)))+'m ('+ side_pos +' of center)', 
+                (50,100), cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,255),2)
             
 def main():
     dest_pickle = pickle.load( open("camera_cal/wide_dist_pickle.p", "rb"  ))
@@ -286,7 +308,13 @@ def main():
         #Debug point
         drawn = overlay_on_binary(wrapped, lane_lines_only)
         cv2.imwrite('./test_images/drawn' + str(idx) + '.jpg', drawn)
-          
+        
+        dpm = (10/720, 4/384)
+        curve_radii = radius_of_curvature(image.shape[0],dpm,window_centroids, yvals)
+        
+        annotate_results(result, camera_center, dpm, curve_radii)
+
+        cv2.imwrite('./test_images/final' + str(idx) + '.jpg',result)   
 
         
 if __name__ == '__main__':
