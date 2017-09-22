@@ -229,6 +229,8 @@ def draw_lane_lines(image, m_inv, lanes, colors):
     fg = np.zeros_like(image)
     cv2.fillPoly(fg,np.int32([left]),left_color)
     cv2.fillPoly(fg,np.int32([right]),right_color)
+    lane_lines_only = np.copy(fg)
+    
     draw_driveable_surface(fg, centre)
     fg = cv2.warpPerspective(fg, m_inv, img_size, flags=cv2.INTER_LINEAR)
     
@@ -240,7 +242,7 @@ def draw_lane_lines(image, m_inv, lanes, colors):
     base = cv2.addWeighted(image, 1.0, bg, -1.0, 0.0) 
     result = cv2.addWeighted(base, 1.0, fg, 0.7, 0.0) 
             
-    return result, fg   
+    return result, lane_lines_only   
 
 def draw_driveable_surface(image, centre):
     cv2.fillPoly(image,np.int32([centre]),color=[0,255,0])
