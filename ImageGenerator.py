@@ -88,9 +88,8 @@ def window_mask(width, height, img_ref, center,level):
     return output
 
 def undistort(image, mtx, dist):
-    img = cv2.imread(image)
-    img = cv2.undistort(img, mtx, dist, None, mtx)
-    return img
+    result = cv2.undistort(image, mtx, dist, None, mtx)
+    return result
     
 def preprocess(image):
     preprocessImage = np.zeros_like(image[:,:,0])
@@ -282,8 +281,8 @@ def main():
     images = glob.glob( './test_images/test*.jpg' )
     
     for idx, fname in enumerate(images):
-
-        image = undistort(fname, mtx, dist)
+        image = cv2.imread(fname)
+        image = undistort(image, mtx, dist)
         #Debug point
         cv2.imwrite('./test_images/undistorted' + str(idx) + '.jpg', image)
         
