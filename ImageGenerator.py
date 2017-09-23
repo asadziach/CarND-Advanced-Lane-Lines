@@ -125,10 +125,9 @@ def birds_eye_perspective(image):
     
     return wrapped, Minv      
 
-def get_left_right_centroids(image, window_size):
+def get_left_right_centroids(image, window_size, margin=100):
     
     # Obtained empirically
-    margin = 25
     smoothing = 15
     
     width = window_size[0]
@@ -237,7 +236,7 @@ def fit_lane_lines(image_height, window_centroids, window_size):
     
     return (left_lane, centre_line, right_lane), res_yvals, camera_center 
 
-def draw_lane_lines(image, m_inv, lanes, colors):
+def draw_lane_lines(image, m_inv, lanes, colors, draw_background = False):
     left_color, right_color = colors
     left, centre, right = lanes
     img_size = (image.shape[1], image.shape[0])
@@ -250,13 +249,16 @@ def draw_lane_lines(image, m_inv, lanes, colors):
     draw_driveable_surface(fg, centre)
     fg = cv2.warpPerspective(fg, m_inv, img_size, flags=cv2.INTER_LINEAR)
     
-    bg = np.zeros_like(image)
-    cv2.fillPoly(bg,np.int32([left]),[255,255,255])
-    cv2.fillPoly(bg,np.int32([right]),[255,255,255])
-    bg = cv2.warpPerspective(bg, m_inv, img_size, flags=cv2.INTER_LINEAR)
+    if draw_background:
+        bg = np.zeros_like(image)
+        cv2.fillPoly(bg,np.int32([left]),[255,255,255])
+        cv2.fillPoly(bg,np.int32([right]),[255,255,255])
+        bg = cv2.warpPerspective(bg, m_inv, img_size, flags=cv2.INTER_LINEAR)
     
-    base = cv2.addWeighted(image, 1.0, bg, -1.0, 0.0) 
-    result = cv2.addWeighted(base, 1.0, fg, 0.7, 0.0) 
+        base = cv2.addWeighted(image, 1.0, bg, -1.0, 0.0) 
+        result = cv2.addWeighted(base, 1.0, fg, 0.7, 0.0) 
+    else:
+        result = cv2.addWeighted(image, 1.0, fg, 0.7, 0.0) 
             
     return result, lane_lines_only   
 
@@ -313,7 +315,7 @@ def main():
         #Debug point
         cv2.imwrite('./test_images/warped' + str(idx) + '.jpg', warped)
         
-        window_size = (25,80)     # Obtained empirically
+        window_size = (50,80)     # Obtained empirically
         window_centroids = get_left_right_centroids(warped, window_size)
         
         #Debug point   
