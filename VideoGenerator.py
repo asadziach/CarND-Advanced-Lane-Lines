@@ -16,16 +16,17 @@ def process_image(image):
 
     preprocessed = preprocess(image)
     
-    wrapped, m_inv = birds_eye_perspective(preprocessed)
+    warped, m_inv = birds_eye_perspective(preprocessed)
     
     window_size = (25,80)     # Obtained empirically
-    window_centroids = get_left_right_centroids(wrapped, window_size)
+    window_centroids = get_left_right_centroids(warped, window_size)
     
     lanes, yvals, camera_center = fit_lane_lines(image.shape[0], window_centroids, window_size)
-    result, _ = draw_lane_lines(image, m_inv, lanes, colors=([255,0,0],[0,0,255]))
     
     dpm = (3.7/700, 30/720) # meters per pixel
     curve_radii = radius_of_curvature(image.shape[0],dpm,window_centroids, yvals)
+    
+    result, _ = draw_lane_lines(image, m_inv, lanes, colors=([255,0,0],[0,0,255]))
     
     annotate_results(result, camera_center, dpm, curve_radii)
 

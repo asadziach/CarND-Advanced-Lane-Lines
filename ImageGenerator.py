@@ -147,6 +147,10 @@ def get_left_right_centroids(image, window_size):
     
     centroids.append((left_center, right_center))
     
+    lane_distance = 0
+    last_right = 0
+    last_left = 0
+    
     # Move up
     for level in range(1,(int)(image.shape[0]/height)):
        
@@ -159,14 +163,27 @@ def get_left_right_centroids(image, window_size):
         
         left_min_index = int(max(left_center+offset-margin, 0))
         left_max_index = int(min(left_center+offset+margin, image.shape[1]))
-        left_center = np.argmax(conv_signal[left_min_index:left_max_index])+left_min_index-offset
+        left_center = np.argmax(conv_signal[left_min_index:left_max_index])
+        left_confidence = conv_signal[left_center + left_min_index]
+        left_center = left_center+left_min_index-offset
         
         right_min_index = int(max(right_center+offset-margin, 0))
         right_max_index = int(min(right_center+offset+margin, image.shape[1]))
-        right_center = np.argmax(conv_signal[right_min_index:right_max_index])+right_min_index-offset
+        right_center = np.argmax(conv_signal[right_min_index:right_max_index])
+        right_confidence = conv_signal[right_center + right_min_index]
+        right_center = right_center+right_min_index-offset
         
+        if (right_confidence == 0):
+            right_center = last_right
+  
+        if (right_confidence == 0):
+            left_center = last_left
+                        
         centroids.append((left_center,right_center))
         
+        lane_distance = right_center - left_center
+        last_right =  right_center
+        last_left = left_center
     recent_centers.append(centroids)
     
     # return result averaged over past centers.
@@ -176,7 +193,7 @@ def draw_visual_debug(image, window_centroids, window_size):
     l_points = np.zeros_like(image)
     r_points = np.zeros_like(image)
     
-    window_width = window_size[0]
+    window_width = window_size[0] 
     window_height = window_size[1]
             
     for level in range(0,len(window_centroids)):
@@ -190,7 +207,7 @@ def draw_visual_debug(image, window_centroids, window_size):
     zero_channel = np.zeros_like(template)  
     template = np.array(cv2.merge((zero_channel,template,zero_channel)),np.uint8) 
     warpage = np.array(cv2.merge((image,image,image)),np.uint8) 
-    return cv2.addWeighted(warpage, 1, template, 0.5, 0.0) 
+    return cv2.addWeighted(warpage, .7, template, 1, 0.0) 
 
 def fit_lane_lines(image_height, window_centroids, window_size):
     
@@ -248,7 +265,7 @@ def draw_driveable_surface(image, centre):
 
 def overlay_on_binary(base, overlay):
     warpage = np.array(cv2.merge((base,base,base)),np.uint8)
-    return cv2.addWeighted(warpage, 1, overlay, 0.5, 0.0)
+    return cv2.addWeighted(warpage, .7, overlay, 1., 0.0)
         
 def radius_of_curvature(image_height, dpm, window_centroids, res_yvals):
 
