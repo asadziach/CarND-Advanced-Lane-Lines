@@ -125,10 +125,7 @@ def birds_eye_perspective(image):
     
     return wrapped, Minv      
 
-def get_left_right_centroids(image, window_size, margin=100):
-    
-    # Obtained empirically
-    smoothing = 15
+def get_left_right_centroids(image, window_size, margin=100, smoothing=15):
     
     width = window_size[0]
     height = window_size[1]
@@ -208,7 +205,8 @@ def draw_visual_debug(image, window_centroids, window_size):
     warpage = np.array(cv2.merge((image,image,image)),np.uint8) 
     return cv2.addWeighted(warpage, .7, template, 1, 0.0) 
 
-def fit_lane_lines(image_height, window_centroids, window_size):
+recent_lanes = []
+def fit_lane_lines(image_height, window_centroids, window_size, smoothing=1):
     
     left_x = window_centroids[:,0]
     right_x = window_centroids[:,1]
@@ -234,9 +232,12 @@ def fit_lane_lines(image_height, window_centroids, window_size):
     
     camera_center = (left_fitx[-1] + right_fitx[-1])/2 
     
-    return (left_lane, centre_line, right_lane), res_yvals, camera_center 
+    
+    lanes = (left_lane, centre_line, right_lane)
+    recent_lanes.append(lanes)
+    return np.average(recent_lanes[-smoothing:], axis=0), res_yvals, camera_center 
 
-def draw_lane_lines(image, m_inv, lanes, colors, draw_background = False):
+def draw_lane_lines(image, m_inv, lanes, colors, draw_background=False):
     left_color, right_color = colors
     left, centre, right = lanes
     img_size = (image.shape[1], image.shape[0])
@@ -323,7 +324,8 @@ def main():
         cv2.imwrite('./test_images/tracked' + str(idx) + '.jpg', tracked)
         
         lanes, yvals, camera_center = fit_lane_lines(image.shape[0], window_centroids, window_size)
-        result, lane_lines_only = draw_lane_lines(image, m_inv, lanes, colors=([255,0,0],[0,0,255]))
+        result, lane_lines_only = draw_lane_lines(image, m_inv, lanes, 
+                                                  colors=([255,0,0],[0,0,255]), draw_background=True)
         
         #Debug point
         drawn = overlay_on_binary(warped, lane_lines_only)

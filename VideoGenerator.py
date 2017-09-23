@@ -19,9 +19,10 @@ def process_image(image):
     warped, m_inv = birds_eye_perspective(preprocessed)
     
     window_size = (25,80)     # Obtained empirically
-    window_centroids = get_left_right_centroids(warped, window_size, margin=35)
+    window_centroids = get_left_right_centroids(warped, window_size, margin=25)
     
-    lanes, yvals, camera_center = fit_lane_lines(image.shape[0], window_centroids, window_size)
+    lanes, yvals, camera_center = fit_lane_lines(image.shape[0], window_centroids, 
+                                                 window_size, smoothing=20)
     
     dpm = (3.7/700, 30/720) # meters per pixel
     curve_radii = radius_of_curvature(image.shape[0],dpm,window_centroids, yvals)
