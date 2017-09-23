@@ -24,7 +24,7 @@ def process_image(image):
     lanes, yvals, camera_center = fit_lane_lines(image.shape[0], window_centroids, window_size)
     result, _ = draw_lane_lines(image, m_inv, lanes, colors=([255,0,0],[0,0,255]))
     
-    dpm = (10/720, 4/384)
+    dpm = (3.7/700, 30/720) # meters per pixel
     curve_radii = radius_of_curvature(image.shape[0],dpm,window_centroids, yvals)
     
     annotate_results(result, camera_center, dpm, curve_radii)

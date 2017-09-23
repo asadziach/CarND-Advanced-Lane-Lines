@@ -310,7 +310,7 @@ def main():
         drawn = overlay_on_binary(wrapped, lane_lines_only)
         cv2.imwrite('./test_images/drawn' + str(idx) + '.jpg', drawn)
         
-        dpm = (10/720, 4/384)
+        dpm = (3.7/700, 30/720) # meters per pixel 
         curve_radii = radius_of_curvature(image.shape[0],dpm,window_centroids, yvals)
         
         annotate_results(result, camera_center, dpm, curve_radii)
