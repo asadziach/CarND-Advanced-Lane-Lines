@@ -291,23 +291,23 @@ def main():
         #Debug point
         cv2.imwrite('./test_images/preprocessed' + str(idx) + '.jpg', preprocessed)
                 
-        wrapped, m_inv = birds_eye_perspective(preprocessed)
+        warped, m_inv = birds_eye_perspective(preprocessed)
 
         #Debug point
-        cv2.imwrite('./test_images/wrapped' + str(idx) + '.jpg', wrapped)
+        cv2.imwrite('./test_images/warped' + str(idx) + '.jpg', warped)
         
         window_size = (25,80)     # Obtained empirically
-        window_centroids = get_left_right_centroids(wrapped, window_size)
+        window_centroids = get_left_right_centroids(warped, window_size)
         
         #Debug point   
-        tracked = draw_visual_debug(wrapped, window_centroids, window_size) 
+        tracked = draw_visual_debug(warped, window_centroids, window_size) 
         cv2.imwrite('./test_images/tracked' + str(idx) + '.jpg', tracked)
         
         lanes, yvals, camera_center = fit_lane_lines(image.shape[0], window_centroids, window_size)
         result, lane_lines_only = draw_lane_lines(image, m_inv, lanes, colors=([255,0,0],[0,0,255]))
         
         #Debug point
-        drawn = overlay_on_binary(wrapped, lane_lines_only)
+        drawn = overlay_on_binary(warped, lane_lines_only)
         cv2.imwrite('./test_images/drawn' + str(idx) + '.jpg', drawn)
         
         dpm = (3.7/700, 30/720) # meters per pixel 
