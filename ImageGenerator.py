@@ -7,6 +7,7 @@ import numpy as np
 import cv2
 import glob
 import pickle
+from State import LaneState
 
 # Define a function that thresholds the S-channel of HLS
 def hls_select(img, thresh=(0, 255)):
@@ -125,12 +126,11 @@ def birds_eye_perspective(image):
     
     return wrapped, Minv      
 
-def get_left_right_centroids(image, window_size, margin=100, smoothing=15):
+def get_left_right_centroids(state, image, window_size, margin=100, smoothing=15):
     
     width = window_size[0]
     height = window_size[1]
-    recent_centers = []
-
+    recent_centers = state.recent_centers
     centroids = []
     window = np.ones(width)
     
@@ -143,7 +143,6 @@ def get_left_right_centroids(image, window_size, margin=100, smoothing=15):
     
     centroids.append((left_center, right_center))
     
-    lane_distance = 0
     last_right = 0
     last_left = 0
     
@@ -177,7 +176,6 @@ def get_left_right_centroids(image, window_size, margin=100, smoothing=15):
                         
         centroids.append((left_center,right_center))
         
-        lane_distance = right_center - left_center
         last_right =  right_center
         last_left = left_center
     recent_centers.append(centroids)
@@ -205,11 +203,11 @@ def draw_visual_debug(image, window_centroids, window_size):
     warpage = np.array(cv2.merge((image,image,image)),np.uint8) 
     return cv2.addWeighted(warpage, .7, template, 1, 0.0) 
 
-recent_lanes = []
-def fit_lane_lines(image_height, window_centroids, window_size, smoothing=1):
+def fit_lane_lines(state, image_height, window_centroids, window_size, smoothing=1):
     
     left_x = window_centroids[:,0]
     right_x = window_centroids[:,1]
+    recent_lanes = state.recent_lanes
     
     yvals = np.arange(0, image_height)
     window_width = window_size[0]
@@ -317,13 +315,14 @@ def main():
         cv2.imwrite('./test_images/warped' + str(idx) + '.jpg', warped)
         
         window_size = (50,80)     # Obtained empirically
-        window_centroids = get_left_right_centroids(warped, window_size)
+        state = LaneState()
+        window_centroids = get_left_right_centroids(state, warped, window_size)
         
         #Debug point   
         tracked = draw_visual_debug(warped, window_centroids, window_size) 
         cv2.imwrite('./test_images/tracked' + str(idx) + '.jpg', tracked)
         
-        lanes, yvals, camera_center = fit_lane_lines(image.shape[0], window_centroids, window_size)
+        lanes, yvals, camera_center = fit_lane_lines(state, image.shape[0], window_centroids, window_size)
         result, lane_lines_only = draw_lane_lines(image, m_inv, lanes, 
                                                   colors=([255,0,0],[0,0,255]), draw_background=True)
         
