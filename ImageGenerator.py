@@ -277,11 +277,11 @@ def radius_of_curvature(image_height, dpm, window_centroids, res_yvals):
     right_x = window_centroids[:,1]
     curve_fit_cr = np.polyfit(np.array(res_yvals,np.float32)*dpm[1], np.array(right_x,np.float32)*dpm[0], 2)
     right = ((1+(2*curve_fit_cr[0]*res_yvals[-1]*dpm[1] + curve_fit_cr[1])**2)**1.5) / np.absolute(2*curve_fit_cr[0])    
-    return (left+right)/2 
+    return (left,right) 
  
 def annotate_results(image, camera_center, dpm, curve_radii):
     
-    curve_radius  = curve_radii
+    curve_radius  = (curve_radii[0] + curve_radii[1])/2 # Take average of left and right
     center_diff = (camera_center-image.shape[1]/2)*dpm[0]
     side_pos = 'right' if center_diff <= 0 else'left'
 
