@@ -15,13 +15,13 @@ class VideoLaneProcessor(object):
     window_size = (25,80)     # Obtained empirically
     dpm = (3.7/700, 30/720)   # meters per pixel
     
-    min_lane_distance = 500   # pixles (U.S. regulations)
-    max_lane_distane = 659   # pixels
+    min_lane_distance = 450   # pixles (U.S. regulations)
+    max_lane_distane = 500   # pixels
     
     curve_tolerance  = 300
     bad_frame_threshold = 10
     lane_smoothing = 40
-    drift_cotrol = 100
+    drift_cotrol = 10
     
     def __init__(self, camera_cal_pickle):
         '''
@@ -32,7 +32,7 @@ class VideoLaneProcessor(object):
         self.dist = dest_pickle["dist"]
         
         self.state = LaneState()
-        self.recent_curve_radii = []
+        self.recent_curve_radii = [(0,0)]
         self.needs_reset = True
         self.bad_frame_count = 0
         self.frame_count = 0   
@@ -95,8 +95,9 @@ class VideoLaneProcessor(object):
         return result  
         
 def main():
-    output = 'project_video_tracked.mp4'
-    input  = 'project_video.mp4'
+    videoname = 'project_video'
+    output = videoname + '_tracked.mp4'
+    input  = videoname + '.mp4'
     
     clip = VideoFileClip(input)
     processor = VideoLaneProcessor("camera_cal/wide_dist_pickle.p")
