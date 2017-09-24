@@ -126,28 +126,33 @@ def birds_eye_perspective(image):
     
     return wrapped, Minv      
 
-def get_left_right_centroids(state, image, window_size, margin=100, smoothing=15):
+def get_left_right_centroids(state, image, window_size, margin=100, smoothing=15, hunt=True):
     
     width = window_size[0]
     height = window_size[1]
     recent_centers = state.recent_centers
     centroids = []
     window = np.ones(width)
-    
-    #Left
-    left_sum = np.sum(image[int(3*image.shape[0]/4):,:int(image.shape[1]/2)], axis=0)
-    left_center = np.argmax(np.convolve(window,left_sum)) - width/2
-    #Right
-    right_sum = np.sum(image[int(3*image.shape[0]/4):,int(image.shape[1]/2):], axis=0)
-    right_center = np.argmax(np.convolve(window,right_sum)) - width/2 + int(image.shape[1]/2)
-    
-    centroids.append((left_center, right_center))
+    start_index = 0
+    if hunt:
+        #Left
+        left_sum = np.sum(image[int(3*image.shape[0]/4):,:int(image.shape[1]/2)], axis=0)
+        left_center = np.argmax(np.convolve(window,left_sum)) - width/2
+        #Right
+        right_sum = np.sum(image[int(3*image.shape[0]/4):,int(image.shape[1]/2):], axis=0)
+        right_center = np.argmax(np.convolve(window,right_sum)) - width/2 + int(image.shape[1]/2)
+        
+        centroids.append((left_center, right_center))
+        
+        start_index += 1
+    else:
+        left_center,right_center = recent_centers[0][-1]
     
     last_right = 0
     last_left = 0
     
     # Move up
-    for level in range(1,(int)(image.shape[0]/height)):
+    for level in range(start_index,(int)(image.shape[0]/height)):
        
         image_layer = np.sum(image[int(image.shape[0]-(level+1)*height):
                                     int(image.shape[0]-level*height),:], axis=0)
@@ -171,13 +176,14 @@ def get_left_right_centroids(state, image, window_size, margin=100, smoothing=15
         if (right_confidence == 0):
             right_center = last_right
   
-        if (right_confidence == 0):
+        if (left_confidence == 0):
             left_center = last_left
                         
         centroids.append((left_center,right_center))
         
         last_right =  right_center
         last_left = left_center
+    
     recent_centers.append(centroids)
     
     # return result averaged over past centers.

@@ -18,7 +18,10 @@ class VideoLaneProcessor(object):
     min_lane_distance = 500   # pixles (U.S. regulations)
     max_lane_distane = 659   # pixels
     
-    curve_tolerance  = 200
+    curve_tolerance  = 300
+    bad_frame_threshold = 10
+    lane_smoothing = 40
+    drift_cotrol = 100
     
     def __init__(self, camera_cal_pickle):
         '''
@@ -29,7 +32,10 @@ class VideoLaneProcessor(object):
         self.dist = dest_pickle["dist"]
         
         self.state = LaneState()
-        self.recent_curve_radii = []    
+        self.recent_curve_radii = []
+        self.needs_reset = True
+        self.bad_frame_count = 0
+        self.frame_count = 0   
             
     def sanity_ok(self, window_centroids, curve_radii):
         left_center = window_centroids[:,0][0]
@@ -54,7 +60,7 @@ class VideoLaneProcessor(object):
         warped, m_inv = birds_eye_perspective(preprocessed)
         
         window_centroids = get_left_right_centroids(self.state, warped, VideoLaneProcessor.window_size, 
-                                                    margin=25)
+                                                    margin=25, hunt=self.needs_reset)
         
         lanes, yvals, camera_center = fit_lane_lines(self.state, image.shape[0], window_centroids, 
                                                      VideoLaneProcessor.window_size, smoothing=1)
@@ -62,19 +68,30 @@ class VideoLaneProcessor(object):
         curve_radii = radius_of_curvature(image.shape[0],VideoLaneProcessor.dpm,window_centroids, yvals)
         
         if not self.sanity_ok(window_centroids, curve_radii):
+            #bad frame
             lanes = self.state.recent_lanes[-1]
             curve_radii = self.recent_curve_radii[-1]
-        else:
+            self.bad_frame_count += 1         
+        else: # Good frame
             self.state.recent_lanes.append(lanes)
             self.recent_curve_radii.append(curve_radii)
+            self.needs_reset = False
+
             
-        lanes = np.average(self.state.recent_lanes[-40:], axis=0)
+        lanes = np.average(self.state.recent_lanes[-VideoLaneProcessor.lane_smoothing:], axis=0)
         curve_radii = np.average(self.recent_curve_radii[-5:], axis=0)
 
         result, _ = draw_lane_lines(image, m_inv, lanes, colors=([0,255,0],[0,255,0]))
         
         annotate_results(result, camera_center, VideoLaneProcessor.dpm, curve_radii)
     
+        self.frame_count += 1
+        #Keep huning full frames to better initialze the smoothing filters
+        if (self.frame_count < VideoLaneProcessor.lane_smoothing or 
+            self.frame_count < VideoLaneProcessor.drift_cotrol        or
+            self.bad_frame_count > VideoLaneProcessor.bad_frame_threshold):
+            self.needs_reset = True 
+        
         return result  
         
 def main():
