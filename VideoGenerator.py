@@ -22,7 +22,7 @@ def process_image(image):
     window_centroids = get_left_right_centroids(warped, window_size, margin=25)
     
     lanes, yvals, camera_center = fit_lane_lines(image.shape[0], window_centroids, 
-                                                 window_size, smoothing=20)
+                                                 window_size, smoothing=50)
     
     dpm = (3.7/700, 30/720) # meters per pixel
     curve_radii = radius_of_curvature(image.shape[0],dpm,window_centroids, yvals)
