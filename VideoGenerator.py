@@ -16,7 +16,7 @@ class VideoLaneProcessor(object):
     dpm = (3.7/700, 30/720)   # meters per pixel
     
     min_lane_distance = 425   # pixles (U.S. regulations)
-    max_lane_distane = 550   # pixels
+    max_lane_distane = 500    # pixels
     
     curve_tolerance  = 300
     bad_frame_threshold = 10
@@ -31,8 +31,8 @@ class VideoLaneProcessor(object):
         self.mtx = dest_pickle["mtx"]
         self.dist = dest_pickle["dist"]
         
-        self.state = LaneState()
         self.recent_lanes = []
+        self.recent_centers = []
         self.recent_curve_radii = []
         self.needs_reset = True
         self.bad_frame_count = 0
@@ -60,10 +60,10 @@ class VideoLaneProcessor(object):
         
         warped, m_inv = birds_eye_perspective(preprocessed)
         
-        window_centroids = get_left_right_centroids(self.state, warped, VideoLaneProcessor.window_size, 
+        window_centroids = get_left_right_centroids(self.recent_centers, warped, VideoLaneProcessor.window_size, 
                                                     margin=25, hunt=self.needs_reset)
         
-        lanes, yvals, camera_center = fit_lane_lines(self.state, image.shape[0], window_centroids, 
+        lanes, yvals, camera_center = fit_lane_lines(image.shape[0], window_centroids, 
                                                      VideoLaneProcessor.window_size)
         
         curve_radii = radius_of_curvature(image.shape[0],VideoLaneProcessor.dpm,window_centroids, yvals)
@@ -99,7 +99,7 @@ class VideoLaneProcessor(object):
         return result  
         
 def main():
-    videoname = 'project_video'
+    videoname = 'challenge_video'
     output = videoname + '_output.mp4'
     input  = videoname + '.mp4'
     
