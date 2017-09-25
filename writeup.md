@@ -45,26 +45,27 @@ To demonstrate this step, I will describe how I apply the distortion correction 
 
 #### 2. Binary image result.
 
-I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at function preprocesslines #95 through #102 in `./ImageGenerator.py`).  Here's an example of my output for this step. 
+I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at function preprocess() `ImageGenerator.py` line:93). Here's an example of my output for this step. 
 
 ![alt text][image3]
 
 #### 3. Perspective transform of image.
 
-The code for my perspective transform includes a function called `birds_eye_perspective()`, which appears in lines 105 through 127 in the file `./ImageGenerator.py`.  The `birds_eye_perspective()` function takes as inputs an image (`image`), calculates source (`src`) and destination (`dst`) points. I chose an ROI used the following constants derived empirically.
+The code for my perspective transform includes a function called `birds_eye_perspective()`, in the file `ImageGenerator.py` line:103.  The `birds_eye_perspective()` function takes as inputs an image (`image`), calculates source (`src`) and destination (`dst`) points. I chose an ROI used the following constants derived empirically.
 
 ```python
-    bot_width = 0.76
-    mid_width = 0.08
-    height_pct = 0.62
+    # Obtained empirically to map trapezoid to birds eye view
+    bottom_width = 0.76
     bottom_trim = 0.935
+    center_width = 0.08
+    height_margin = 0.62
     
     img_size = (image.shape[1], image.shape[0])
             
-    src_img = np.float32([[img_size[0]*(.5-mid_width/2),img_size[1]*height_pct],
-                      [img_size[0]*(.5+mid_width/2),img_size[1]*height_pct],
-                      [img_size[0]*(.5+bot_width/2),img_size[1]*bottom_trim],
-                      [img_size[0]*(.5-bot_width/2),img_size[1]*bottom_trim]])
+    src_img = np.float32([[img_size[0]*(.5-center_width/2),img_size[1]*height_margin],
+                      [img_size[0]*(.5+center_width/2),img_size[1]*height_margin],
+                      [img_size[0]*(.5+bottom_width/2),img_size[1]*bottom_trim],
+                      [img_size[0]*(.5-bottom_width/2),img_size[1]*bottom_trim]])
     offset = img_size[0]*.25
     dst_img = np.float32([[offset, 0], [img_size[0]-offset, 0], 
                       [img_size[0]-offset, img_size[1]],
@@ -89,20 +90,20 @@ I verified that my perspective transform was working as expected by drawing the 
 
 I used convolution approach with the sliding window method. It maximizes the number of "hot" pixels in each window. A convolution is the summation of the product of two separate signals, in my case the window template and the vertical slice of the pixel image.
 
-I slide my window template across the image from left to right and any overlapping values are summed together, creating the convolved signal. The peak of the convolved signal is where there was the highest overlap of pixels and the most likely position for the lane marker. File `ImageGenerator.py` function get_left_right_centroids(). Here is a debug output of this operation:
+I slide my window template across the image from left to right and any overlapping values are summed together, creating the convolved signal. The peak of the convolved signal is where there was the highest overlap of pixels and the most likely position for the lane marker. File `ImageGenerator.py` function get_left_right_centroids() line 131. Here is a debug output of this operation:
 ![alt text][image7]
 
-The code to fit my lane lines with a 2nd order polynomial is in file `ImageGenerator.py` function fit_lane_lines() line 214:
+The code to fit my lane lines with a 2nd order polynomial is in file `ImageGenerator.py` function fit_lane_lines() line:216:
 
 ![alt text][image5]
 
 #### 5. Calculating radius of curvature of the lane and the position of the vehicle with respect to center.
 
-The code is in file `./ImageGenerator.py` functions radius_of_curvature(), fit_lane_lines() and annotate_results() 
+The code is in file `ImageGenerator.py` functions radius_of_curvature(), fit_lane_lines() and annotate_results() 
 
 #### 6. Results
 
-I implemented this step in my code file `./ImageGenerator.py`  in the function `draw_lane_lines()`.  Here is an example of my result on a test image:
+I implemented this step in my code file `ImageGenerator.py`  in the function `draw_lane_lines()`.  Here is an example of my result on a test image:
 
 ![alt text][image6]
 
@@ -110,13 +111,19 @@ I implemented this step in my code file `./ImageGenerator.py`  in the function `
 
 ### Pipeline (video)
 
+#### Project Video
 Here's a [link to my video result](./project_video_output.mp4)
+#### Challenge Video
+Here's a [link to my video result](./challenge_video_output.mp4)
+
+I conquered the "Challenge" video by implementing the following:
 
 #### Tracking and Look-Ahead Filter
 Video is a series of related images. I used this to my advantage by keeping track of things like where my last several detections of the lane lines were and what the curvature was. This helps identify outliers in lane detection an provides smoother and more stable results as compared to individual images. This also helps reduce computation costs since I don't need to hunt of lane lines in whole images, instead I simply search within a window around the previous detection.
 
 When I fit a polynomial, then for each y position, I have an x position that represents the lane center from the last frame. I search for the new line within +/- defined margin around the old line center. This is controlled by "hunt" boolean parameter of function get_left_right_centroids() in file 'ImageGenerator.py'
 
+On my PC, the speed up was 2x. Without Look-Ahead Filter it as doing from 7~10 iterations per sec. It improved to 15~16 iterations per sec.
 
 #### Sanity Check
 Once my algorithm has found some lines. I check that if the detection makes sense? To confirm that my detected lane lines are real, I implemented the following in function sanity_ok() file VideoGenerator.py:
@@ -135,12 +142,14 @@ Even when everything is working, the line detections tend to jump around from fr
 
 ### Discussion
 
-I tried both the approaches touched in lectures, histogram and convolution. The results are very similar. The most fragile part of the pipeline is the initial creation of binary image by thresholding. I found it challenging to narrow it down to a thresholding range that generalizes well across different videos. By using a specialized convolution kernel, I had success finding lanes on "Challenge" videos. Obviously this will not generalize. The pipeline works best on highways but struggles on back roads and urban areas. There are some other challenges like, road repairs and lighting changes. Some of the techniques to deal with it are distance and curvature sanity testing, smoothing and kalman filters.
+I tried both the approaches touched in lectures, histogram and convolution. The results are similar. To conquer "Challenge" video I implemented 'Tracking and Look-Ahead Filter' as mentioned earlier. In the the challenge video, road repair crack coincides with yellow lane and then forks and start running parallel. If I were not doing sanity test and tracking then road repair could easily fool the software considering it has a stronger peak in gradient detection
 
-One way to fix this is to fit a model of the road instead of looking for just the two lane lines. Lanes lines may be occluded, missing or have dramatic change in gradients, in case of sharp turns. First stage in the pipeline should be to determine what kind of road are we on? If it a forest backroad, then it might be useful to keep track of road boundaries in addition to lane the lines. In difficult frames where lanes lines are lost, we can use road edges to get our bearings and calculate lanes indirectly. A machine learning approach can be more robust than traditional Computer Vision techniques, provided we train it properly.
+The most fragile part of the pipeline is the initial creation of binary image by thresholding. I found it challenging to narrow it down to a thresholding range that generalizes well across different videos. By using a specialized convolution kernel, I had success finding lanes on "Harder Challenge" videos. Obviously this will not generalize. The pipeline works best on highways but struggles on back roads and urban areas. There are some other challenges like, dirt, snow, lighting changes specially at night. One way to deal with it is to work with multiple evidence from visual processing. [paper](http://ieeexplore.ieee.org/document/7225741/)
+
+More generally we would want to fit a model of the road instead of looking for just the two lane lines. Lanes lines may be occluded, missing or have dramatic change in gradients, in case of sharp turns. First stage in the pipeline should be to determine what kind of road are we on? If it a forest backroad, then it might be useful to keep track of road boundaries in addition to lane the lines. In difficult frames where lanes lines are lost, we can use road edges to get our bearings and calculate lanes indirectly. A machine learning approach can be more robust than traditional Computer Vision techniques, provided we train it properly.
 
 A deep leanring appraoch can also work. Nvidia trained a [model](https://devblogs.nvidia.com/parallelforall/explaining-deep-learning-self-driving-car/) that is able to drive itself by not only learning the obvious features such as lane markings, but also more subtle features that would be hard to anticipate and program by engineers, for example, bushes lining the edge of the road and atypical vehicle classes. 
 
 On urban roads, Semantic Segmentation by a NN approach, would be more robust in finding the driveable areas, [example](http://www.ri.cmu.edu/pub_files/2016/7/ankit-laddha-ms.pdf).
 
-I tried two Sementic Segmantation implementations with TensorFlow [KittiSeg](https://github.com/MarvinTeichmann/KittiSeg.git) and [dilation-tensorflow](https://github.com/ndrplz/dilation-tensorflow.git). I found them to be slow and needing 'not so moderate' GPU RAM. It does not seem suitable to do per frame. I am not sure if it is an architectural issue with Sementic Segmantation or just that the frameworks I tried have issues.
+I tried two Sementic Segmantation implementations with TensorFlow [KittiSeg](https://github.com/MarvinTeichmann/KittiSeg.git) and [dilation-tensorflow](https://github.com/ndrplz/dilation-tensorflow.git). I found them to be slow and needing 'more than moderate' GPU RAM. It does not seem suitable to do per frame. I am not sure if it is an architectural issue with Sementic Segmantation or just that the frameworks I tried have issues.
