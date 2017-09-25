@@ -16,7 +16,7 @@ class VideoLaneProcessor(object):
     dpm = (3.7/700, 30/720)   # meters per pixel
     
     min_lane_distance = 450   # pixles (U.S. regulations)
-    max_lane_distane = 500   # pixels
+    max_lane_distane = 550   # pixels
     
     curve_tolerance  = 300
     bad_frame_threshold = 10
@@ -32,7 +32,8 @@ class VideoLaneProcessor(object):
         self.dist = dest_pickle["dist"]
         
         self.state = LaneState()
-        self.recent_curve_radii = [(0,0)]
+        self.recent_lanes = []
+        self.recent_curve_radii = []
         self.needs_reset = True
         self.bad_frame_count = 0
         self.frame_count = 0   
@@ -63,22 +64,22 @@ class VideoLaneProcessor(object):
                                                     margin=25, hunt=self.needs_reset)
         
         lanes, yvals, camera_center = fit_lane_lines(self.state, image.shape[0], window_centroids, 
-                                                     VideoLaneProcessor.window_size, smoothing=1)
+                                                     VideoLaneProcessor.window_size)
         
         curve_radii = radius_of_curvature(image.shape[0],VideoLaneProcessor.dpm,window_centroids, yvals)
         
         if not self.sanity_ok(window_centroids, curve_radii):
             #bad frame
-            lanes = self.state.recent_lanes[-1]
+            lanes = self.recent_lanes[-1]
             curve_radii = self.recent_curve_radii[-1]
             self.bad_frame_count += 1         
         else: # Good frame
-            self.state.recent_lanes.append(lanes)
+            self.recent_lanes.append(lanes)
             self.recent_curve_radii.append(curve_radii)
             self.needs_reset = False
 
             
-        lanes = np.average(self.state.recent_lanes[-VideoLaneProcessor.lane_smoothing:], axis=0)
+        lanes = np.average(self.recent_lanes[-VideoLaneProcessor.lane_smoothing:], axis=0)
         curve_radii = np.average(self.recent_curve_radii[-5:], axis=0)
 
         result, _ = draw_lane_lines(image, m_inv, lanes, colors=([0,255,0],[0,255,0]))
@@ -96,7 +97,7 @@ class VideoLaneProcessor(object):
         
 def main():
     videoname = 'project_video'
-    output = videoname + '_tracked.mp4'
+    output = videoname + '_output.mp4'
     input  = videoname + '.mp4'
     
     clip = VideoFileClip(input)

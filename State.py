@@ -15,4 +15,3 @@ class LaneState(object):
         Constructor
         '''
         self.recent_centers = []
-        self.recent_lanes = []

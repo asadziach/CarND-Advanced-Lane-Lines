@@ -209,11 +209,10 @@ def draw_visual_debug(image, window_centroids, window_size):
     warpage = np.array(cv2.merge((image,image,image)),np.uint8) 
     return cv2.addWeighted(warpage, .7, template, 1, 0.0) 
 
-def fit_lane_lines(state, image_height, window_centroids, window_size, smoothing=1):
+def fit_lane_lines(state, image_height, window_centroids, window_size):
     
     left_x = window_centroids[:,0]
     right_x = window_centroids[:,1]
-    recent_lanes = state.recent_lanes
     
     yvals = np.arange(0, image_height)
     window_width = window_size[0]
@@ -234,12 +233,11 @@ def fit_lane_lines(state, image_height, window_centroids, window_size, smoothing
     centre_line = np.array(list(zip(np.concatenate((left_fitx + window_width/2,right_fitx[::-1]-window_width/2), axis=0),
                                    np.concatenate((yvals,yvals[::-1]),axis=0))))
     
+    lanes = (left_lane, centre_line, right_lane)
+    
     camera_center = (left_fitx[-1] + right_fitx[-1])/2 
     
-    
-    lanes = (left_lane, centre_line, right_lane)
-    recent_lanes.append(lanes)
-    return np.average(recent_lanes[-smoothing:], axis=0), res_yvals, camera_center 
+    return lanes, res_yvals, camera_center 
 
 def draw_lane_lines(image, m_inv, lanes, colors, draw_background=False):
     left_color, right_color = colors
@@ -302,7 +300,7 @@ def main():
     mtx = dest_pickle["mtx"]
     dist = dest_pickle["dist"]
 
-    images = glob.glob( './output_images/test*.jpg' )
+    images = glob.glob( './test_images/test*.jpg' )
     
     for idx, fname in enumerate(images):
         image = cv2.imread(fname)
