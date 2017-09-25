@@ -15,7 +15,7 @@ class VideoLaneProcessor(object):
     window_size = (25,80)     # Obtained empirically
     dpm = (3.7/700, 30/720)   # meters per pixel
     
-    min_lane_distance = 450   # pixles (U.S. regulations)
+    min_lane_distance = 425   # pixles (U.S. regulations)
     max_lane_distane = 550   # pixels
     
     curve_tolerance  = 300
@@ -70,6 +70,9 @@ class VideoLaneProcessor(object):
         
         if not self.sanity_ok(window_centroids, curve_radii):
             #bad frame
+            if self.frame_count == 0:
+                # Don't do anything if frist frame is bad
+                return image
             lanes = self.recent_lanes[-1]
             curve_radii = self.recent_curve_radii[-1]
             self.bad_frame_count += 1         
