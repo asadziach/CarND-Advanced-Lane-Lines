@@ -302,23 +302,23 @@ def main():
     mtx = dest_pickle["mtx"]
     dist = dest_pickle["dist"]
 
-    images = glob.glob( './test_images/test*.jpg' )
+    images = glob.glob( './output_images/test*.jpg' )
     
     for idx, fname in enumerate(images):
         image = cv2.imread(fname)
         image = undistort(image, mtx, dist)
         #Debug point
-        cv2.imwrite('./test_images/undistorted' + str(idx) + '.jpg', image)
+        cv2.imwrite('./output_images/undistorted' + str(idx) + '.jpg', image)
         
         preprocessed = preprocess(image)
         
         #Debug point
-        cv2.imwrite('./test_images/preprocessed' + str(idx) + '.jpg', preprocessed)
+        cv2.imwrite('./output_images/preprocessed' + str(idx) + '.jpg', preprocessed)
                 
         warped, m_inv = birds_eye_perspective(preprocessed)
 
         #Debug point
-        cv2.imwrite('./test_images/warped' + str(idx) + '.jpg', warped)
+        cv2.imwrite('./output_images/warped' + str(idx) + '.jpg', warped)
         
         window_size = (50,80)     # Obtained empirically
         state = LaneState()
@@ -326,7 +326,7 @@ def main():
         
         #Debug point   
         tracked = draw_visual_debug(warped, window_centroids, window_size) 
-        cv2.imwrite('./test_images/tracked' + str(idx) + '.jpg', tracked)
+        cv2.imwrite('./output_images/tracked' + str(idx) + '.jpg', tracked)
         
         lanes, yvals, camera_center = fit_lane_lines(state, image.shape[0], window_centroids, window_size)
         result, lane_lines_only = draw_lane_lines(image, m_inv, lanes, 
@@ -334,14 +334,14 @@ def main():
         
         #Debug point
         drawn = overlay_on_binary(warped, lane_lines_only)
-        cv2.imwrite('./test_images/drawn' + str(idx) + '.jpg', drawn)
+        cv2.imwrite('./output_images/drawn' + str(idx) + '.jpg', drawn)
         
         dpm = (3.7/700, 30/720) # meters per pixel 
         curve_radii = radius_of_curvature(image.shape[0],dpm,window_centroids, yvals)
         
         annotate_results(result, camera_center, dpm, curve_radii)
 
-        cv2.imwrite('./test_images/final' + str(idx) + '.jpg',result)   
+        cv2.imwrite('./output_images/final' + str(idx) + '.jpg',result)   
 
         
 if __name__ == '__main__':
