@@ -15,13 +15,15 @@ class VideoLaneProcessor(object):
     window_size = (25,80)     # Obtained empirically
     dpm = (3.7/700, 30/720)   # meters per pixel
     
-    min_lane_distance = 425   # pixles (U.S. regulations)
-    max_lane_distane = 500    # pixels
+    min_lane_distance = 425   # pixles 
+    max_lane_distance = 550    # pixels, challenge vidoe does better with 500
     
     curve_tolerance  = 300
     bad_frame_threshold = 10
     lane_smoothing = 40
     drift_cotrol = 10
+    margin = 25
+    curve_radii_smoothing = 5
     
     def __init__(self, camera_cal_pickle):
         '''
@@ -37,13 +39,19 @@ class VideoLaneProcessor(object):
         self.needs_reset = True
         self.bad_frame_count = 0
         self.frame_count = 0   
-            
+     
+    '''
+        * Checking that they both lanes have similar curvature
+        * Checking if they are separated by the right distance horizontally
+        * Checking that they are roughly parallel     
+    '''           
     def sanity_ok(self, window_centroids, curve_radii):
         left_center = window_centroids[:,0][0]
         right_center = window_centroids[:,1][0]
     
         lane_distance = (right_center - left_center)
-        if lane_distance < VideoLaneProcessor.min_lane_distance or lane_distance > VideoLaneProcessor.max_lane_distane:
+        if (lane_distance < VideoLaneProcessor.min_lane_distance or 
+            lane_distance > VideoLaneProcessor.max_lane_distance):
             return  False
         
         left_roc, right_roc = curve_radii
@@ -52,6 +60,7 @@ class VideoLaneProcessor(object):
             return  False
         return True
     
+    # Video processing pipeline
     def process_image(self, image):
     
         image = undistort(image, self.mtx, self.dist)
@@ -60,13 +69,16 @@ class VideoLaneProcessor(object):
         
         warped, m_inv = birds_eye_perspective(preprocessed)
         
-        window_centroids = get_left_right_centroids(self.recent_centers, warped, VideoLaneProcessor.window_size, 
-                                                    margin=25, hunt=self.needs_reset)
+        window_centroids = get_left_right_centroids(self.recent_centers, warped, 
+                                                    VideoLaneProcessor.window_size, 
+                                                    margin=VideoLaneProcessor.margin, 
+                                                    hunt=self.needs_reset)
         
         lanes, yvals, camera_center = fit_lane_lines(image.shape[0], window_centroids, 
                                                      VideoLaneProcessor.window_size)
         
-        curve_radii = radius_of_curvature(image.shape[0],VideoLaneProcessor.dpm,window_centroids, yvals)
+        curve_radii = radius_of_curvature(image.shape[0],VideoLaneProcessor.dpm,
+                                                    window_centroids, yvals)
         
         if not self.sanity_ok(window_centroids, curve_radii):
             #bad frame
@@ -83,14 +95,16 @@ class VideoLaneProcessor(object):
 
             
         lanes = np.average(self.recent_lanes[-VideoLaneProcessor.lane_smoothing:], axis=0)
-        curve_radii = np.average(self.recent_curve_radii[-5:], axis=0)
+        curve_radii = np.average(self.recent_curve_radii[-VideoLaneProcessor.curve_radii_smoothing:], 
+                                 axis=0)
 
         result, _ = draw_lane_lines(image, m_inv, lanes, colors=([0,255,0],[0,255,0]))
         
         annotate_results(result, camera_center, VideoLaneProcessor.dpm, curve_radii)
     
         self.frame_count += 1
-        #Keep huning full frames to better initialze the smoothing filters
+        
+        # Conditions for Reset
         if (self.frame_count < VideoLaneProcessor.lane_smoothing or 
             self.frame_count < VideoLaneProcessor.drift_cotrol        or
             self.bad_frame_count > VideoLaneProcessor.bad_frame_threshold):
@@ -99,7 +113,7 @@ class VideoLaneProcessor(object):
         return result  
         
 def main():
-    videoname = 'challenge_video'
+    videoname = 'project_video'
     output = videoname + '_output.mp4'
     input  = videoname + '.mp4'
     

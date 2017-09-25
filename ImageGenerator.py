@@ -8,7 +8,7 @@ import cv2
 import glob
 import pickle
 
-# Define a function that thresholds the S-channel of HLS
+# Thresholds the S-channel of HLS
 def hls_select(img, thresh=(0, 255)):
     hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
     s_channel = hls[:,:,2]
@@ -16,7 +16,7 @@ def hls_select(img, thresh=(0, 255)):
     binary_output[(s_channel > thresh[0]) & (s_channel <= thresh[1])] = 1
     return binary_output
 
-# Define a function that thresholds the S-channel of HLS
+# Thresholds the V-channel of HSV
 def hsv_select(img, thresh=(0, 255)):
     hls = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
     v_channel = hls[:,:,2]
@@ -24,33 +24,31 @@ def hsv_select(img, thresh=(0, 255)):
     binary_output[(v_channel > thresh[0]) & (v_channel <= thresh[1])] = 1
     return binary_output
 
-# Define a function that takes an image, gradient orientation,
-# and threshold min / max values.
-def abs_sobel_thresh(img, orient='x', thresh=(0, 255)):
-    # Convert to grayscale
+# Takes an image, gradient orientation and threshold min / max values.
+def abs_sobel_select(img, orient='x', thresh=(0, 255)):
+
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    # Apply x or y gradient with the OpenCV Sobel() function
-    # and take the absolute value
+    # Apply x or y gradient. Take absolute
     if orient == 'x':
         abs_sobel = np.absolute(cv2.Sobel(gray, cv2.CV_64F, 1, 0))
     if orient == 'y':
         abs_sobel = np.absolute(cv2.Sobel(gray, cv2.CV_64F, 0, 1))
     # Rescale back to 8 bit integer
     scaled_sobel = np.uint8(255*abs_sobel/np.max(abs_sobel))
-    # Create a copy and apply the threshold
+    # Create a copy
     binary_output = np.zeros_like(scaled_sobel)
-    # Here I'm using inclusive (>=, <=) thresholds, but exclusive is ok too
+    # Apply threshold
     binary_output[(scaled_sobel >= thresh[0]) & (scaled_sobel <= thresh[1])] = 1
-
-    # Return the result
     return binary_output
 
-# Define a function to return the magnitude of the gradient
-# for a given sobel kernel size and threshold values
-def mag_thresh(img, sobel_kernel=3, mag_thresh=(0, 255)):
-    # Convert to grayscale
+'''
+ Returns magnitude of the gradientfor a given sobel kernel
+ size and threshold
+'''
+def sobel_mag_select(img, sobel_kernel=3, sobel_mag_select=(0, 255)):
+
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    # Take both Sobel x and y gradients
+    # Take Sobel x and y gradients
     sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
     sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
     # Calculate the gradient magnitude
@@ -58,62 +56,63 @@ def mag_thresh(img, sobel_kernel=3, mag_thresh=(0, 255)):
     # Rescale to 8 bit
     scale_factor = np.max(gradmag)/255 
     gradmag = (gradmag/scale_factor).astype(np.uint8) 
-    # Create a binary image of ones where threshold is met, zeros otherwise
+    # Create copy
     binary_output = np.zeros_like(gradmag)
-    binary_output[(gradmag >= mag_thresh[0]) & (gradmag <= mag_thresh[1])] = 1
-
-    # Return the binary image
+    # Apply threshold
+    binary_output[(gradmag >= sobel_mag_select[0]) & (gradmag <= sobel_mag_select[1])] = 1
     return binary_output
 
-# Define a function to threshold an image for a given range and Sobel kernel
-def dir_threshold(img, sobel_kernel=3, thresh=(0, np.pi/2)):
-    # Grayscale
+# Threshold for a given range and Sobel kernel
+def sobel_dir_select(img, sobel_kernel=3, thresh=(0, np.pi/2)):
+
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    # Calculate the x and y gradients
+    # x and y gradients
     sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
     sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
-    # Take the absolute value of the gradient direction, 
-    # apply a threshold, and create a binary image result
-    absgraddir = np.arctan2(np.absolute(sobely), np.absolute(sobelx))
-    binary_output =  np.zeros_like(absgraddir)
-    binary_output[(absgraddir >= thresh[0]) & (absgraddir <= thresh[1])] = 1
 
-    # Return the binary image
+    absgraddir = np.arctan2(np.absolute(sobely), np.absolute(sobelx))
+    # Create copy
+    binary_output =  np.zeros_like(absgraddir)
+    # Apply threshold
+    binary_output[(absgraddir >= thresh[0]) & (absgraddir <= thresh[1])] = 1
     return binary_output
 
-def window_mask(width, height, img_ref, center,level):
-    output = np.zeros_like(img_ref)
-    output[int(img_ref.shape[0]-(level+1)*height):int(img_ref.shape[0]-level*height),
-           max(0,int(center-width/2)):min(int(center+width/2),img_ref.shape[1])] = 1
+# Used to draw debug rectangles in sliding widows
+def debug_rect_mask(width, height, image, center, level):
+    output = np.zeros_like(image)
+    output[int(image.shape[0]-(level+1)*height):int(image.shape[0]-level*height),
+           max(0,int(center-width/2)):min(int(center+width/2),image.shape[1])] = 1
     return output
 
+# Undo camera distortion
 def undistort(image, mtx, dist):
     result = cv2.undistort(image, mtx, dist, None, mtx)
     return result
-    
+
+# Color a and gradient thresholding    
 def preprocess(image):
     preprocessImage = np.zeros_like(image[:,:,0])
-    gradx = abs_sobel_thresh(image, orient='x', thresh=(12,255))
-    grady = abs_sobel_thresh(image, orient='y', thresh=(25,255))
+    gradx = abs_sobel_select(image, orient='x', thresh=(12,255))
+    grady = abs_sobel_select(image, orient='y', thresh=(25,255))
     hls   = hls_select(image, thresh=(100,255))
     hsv   = hsv_select(image, thresh=(50,255))
     preprocessImage[(gradx==1) & (grady==1) | (hls==1) & (hsv==1) ] = 255    
     return preprocessImage
 
-# Taken from class notes.
+# Perspective transform of image.
 def birds_eye_perspective(image):
     # Obtained empirically to map trapezoid to birds eye view
-    bot_width = 0.76
-    mid_width = 0.08
-    height_pct = 0.62
+    bottom_width = 0.76
     bottom_trim = 0.935
+    center_width = 0.08
+    height_margin = 0.62
     
     img_size = (image.shape[1], image.shape[0])
             
-    src_img = np.float32([[img_size[0]*(.5-mid_width/2),img_size[1]*height_pct],
-                      [img_size[0]*(.5+mid_width/2),img_size[1]*height_pct],
-                      [img_size[0]*(.5+bot_width/2),img_size[1]*bottom_trim],
-                      [img_size[0]*(.5-bot_width/2),img_size[1]*bottom_trim]])
+    src_img = np.float32([[img_size[0]*(.5-center_width/2),img_size[1]*height_margin],
+                      [img_size[0]*(.5+center_width/2),img_size[1]*height_margin],
+                      [img_size[0]*(.5+bottom_width/2),img_size[1]*bottom_trim],
+                      [img_size[0]*(.5-bottom_width/2),img_size[1]*bottom_trim]])
     offset = img_size[0]*.25
     dst_img = np.float32([[offset, 0], [img_size[0]-offset, 0], 
                       [img_size[0]-offset, img_size[1]],
@@ -124,7 +123,11 @@ def birds_eye_perspective(image):
     wrapped = cv2.warpPerspective(image, M, img_size, flags=cv2.INTER_LINEAR)
     
     return wrapped, Minv      
-
+'''
+ Convolution approach with the sliding window method
+ recent_centers: send list of previous detections if you have. Othewise an empty list
+ set hunt=True for looking for lines from scratch
+ '''
 def get_left_right_centroids(recent_centers, image, window_size, margin=100, smoothing=15, hunt=True):
     
     width = window_size[0]
@@ -132,6 +135,7 @@ def get_left_right_centroids(recent_centers, image, window_size, margin=100, smo
     centroids = []
     window = np.ones(width)
     start_index = 0
+    
     if hunt:
         #Left
         left_sum = np.sum(image[int(3*image.shape[0]/4):,:int(image.shape[1]/2)], axis=0)
@@ -142,7 +146,7 @@ def get_left_right_centroids(recent_centers, image, window_size, margin=100, smo
         
         centroids.append((left_center, right_center))
         
-        start_index += 1
+        start_index += 1 # This window is done, now start with the one above it
     else:
         left_center,right_center = recent_centers[0][-1]
     
@@ -162,15 +166,16 @@ def get_left_right_centroids(recent_centers, image, window_size, margin=100, smo
         left_min_index = int(max(left_center+offset-margin, 0))
         left_max_index = int(min(left_center+offset+margin, image.shape[1]))
         left_center = np.argmax(conv_signal[left_min_index:left_max_index])
-        left_confidence = conv_signal[left_center + left_min_index]
+        left_confidence = conv_signal[left_center + left_min_index] # signal strength
         left_center = left_center+left_min_index-offset
         
         right_min_index = int(max(right_center+offset-margin, 0))
         right_max_index = int(min(right_center+offset+margin, image.shape[1]))
         right_center = np.argmax(conv_signal[right_min_index:right_max_index])
-        right_confidence = conv_signal[right_center + right_min_index]
+        right_confidence = conv_signal[right_center + right_min_index] # signal strength
         right_center = right_center+right_min_index-offset
         
+        # Drop window if it has no pixels (detection  failed)
         if (right_confidence == 0):
             right_center = last_right
   
@@ -195,8 +200,8 @@ def draw_visual_debug(image, window_centroids, window_size):
     window_height = window_size[1]
             
     for level in range(0,len(window_centroids)):
-        l_mask = window_mask(window_width,window_height,image,window_centroids[level][0],level)
-        r_mask = window_mask(window_width,window_height,image,window_centroids[level][1],level)
+        l_mask = debug_rect_mask(window_width,window_height,image,window_centroids[level][0],level)
+        r_mask = debug_rect_mask(window_width,window_height,image,window_centroids[level][1],level)
         l_points[(l_points == 255) | ((l_mask == 1) ) ] = 255
         r_points[(r_points == 255) | ((r_mask == 1) ) ] = 255
     
@@ -207,6 +212,7 @@ def draw_visual_debug(image, window_centroids, window_size):
     warpage = np.array(cv2.merge((image,image,image)),np.uint8) 
     return cv2.addWeighted(warpage, .7, template, 1, 0.0) 
 
+# Fit their positions with a polynomial and find camera center
 def fit_lane_lines(image_height, window_centroids, window_size):
     
     left_x = window_centroids[:,0]
@@ -223,6 +229,7 @@ def fit_lane_lines(image_height, window_centroids, window_size):
     right_fit = np.polyfit(res_yvals, right_x, 2)
     right_poly = np.poly1d(right_fit)
     right_fitx = np.int32(right_poly(yvals))
+    
     # Fancy array magic to encapsulate list values
     left_lane = np.array(list(zip(np.concatenate((left_fitx - window_width/2,left_fitx[::-1]+window_width/2), axis=0),
                                   np.concatenate((yvals,yvals[::-1]),axis=0))))
@@ -233,10 +240,14 @@ def fit_lane_lines(image_height, window_centroids, window_size):
     
     lanes = (left_lane, centre_line, right_lane)
     
+    # Calculate camera center in pixels
     camera_center = (left_fitx[-1] + right_fitx[-1])/2 
     
     return lanes, res_yvals, camera_center 
-
+'''
+ Draws lane lines with optional whilte background to increase contrast.
+ Perform inverse of birds eyeview on lanes and blend with image.
+'''
 def draw_lane_lines(image, m_inv, lanes, colors, draw_background=False):
     left_color, right_color = colors
     left, centre, right = lanes
@@ -263,13 +274,16 @@ def draw_lane_lines(image, m_inv, lanes, colors, draw_background=False):
             
     return result, lane_lines_only   
 
+# Green area between lane lines
 def draw_driveable_surface(image, centre):
     cv2.fillPoly(image,np.int32([centre]),color=[0,255,0])
 
+# Blend on binary image for debuggings
 def overlay_on_binary(base, overlay):
     warpage = np.array(cv2.merge((base,base,base)),np.uint8)
     return cv2.addWeighted(warpage, .7, overlay, 1., 0.0)
-        
+
+# Calculates radius of curvature       
 def radius_of_curvature(image_height, dpm, window_centroids, res_yvals):
 
     left_x = window_centroids[:,0]
@@ -280,7 +294,8 @@ def radius_of_curvature(image_height, dpm, window_centroids, res_yvals):
     curve_fit_cr = np.polyfit(np.array(res_yvals,np.float32)*dpm[1], np.array(right_x,np.float32)*dpm[0], 2)
     right = ((1+(2*curve_fit_cr[0]*res_yvals[-1]*dpm[1] + curve_fit_cr[1])**2)**1.5) / np.absolute(2*curve_fit_cr[0])    
     return (left,right) 
- 
+
+# Create final result 
 def annotate_results(image, camera_center, dpm, curve_radii):
     
     curve_radius  = (curve_radii[0] + curve_radii[1])/2 # Take average of left and right
@@ -292,7 +307,8 @@ def annotate_results(image, camera_center, dpm, curve_radii):
                 (50,50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
     cv2.putText(image, 'Camera: '+str(abs(round(center_diff,3)))+'m ('+ side_pos +' of center)', 
                 (50,100), cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,255),2)
-            
+
+# Build the image pipelines            
 def main():
     dest_pickle = pickle.load( open("camera_cal/wide_dist_pickle.p", "rb"  ))
     mtx = dest_pickle["mtx"]
