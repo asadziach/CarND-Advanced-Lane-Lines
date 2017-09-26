@@ -18,7 +18,7 @@ class VideoLaneProcessor(object):
     min_lane_distance = 425   # pixles 
     max_lane_distance = 550    # pixels, challenge vidoe does better with 500
     
-    curve_tolerance  = 300
+    curve_tolerance  = 600
     bad_frame_threshold = 10
     lane_smoothing = 40
     drift_cotrol = 10
