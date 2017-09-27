@@ -93,7 +93,7 @@ I used convolution approach with the sliding window method. It maximizes the num
 I slide my window template across the image from left to right and any overlapping values are summed together, creating the convolved signal. The peak of the convolved signal is where there was the highest overlap of pixels and the most likely position for the lane marker. File `ImageGenerator.py` function get_left_right_centroids() line 131. Here is a debug output of this operation:
 ![alt text][image7]
 
-The code to fit my lane lines with a 2nd order polynomial is in file `ImageGenerator.py` function fit_lane_lines() line:216:
+The code to fit my lane lines with a 2nd order polynomial is in file `ImageGenerator.py` function fit_lane_lines() line:224:
 
 ![alt text][image5]
 
