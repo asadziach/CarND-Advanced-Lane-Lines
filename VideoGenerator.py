@@ -12,7 +12,7 @@ class VideoLaneProcessor(object):
     '''
     class attributes
     '''
-    window_size = (25,80)     # Obtained empirically
+    window_size = (50,100)     # Obtained empirically
     dpm = (3.7/700, 30/720)   # meters per pixel
     
     min_lane_distance = 425   # pixles 
@@ -20,10 +20,10 @@ class VideoLaneProcessor(object):
     
     curve_tolerance  = 600
     bad_frame_threshold = 10
-    lane_smoothing = 40
+    lane_smoothing = 3
     drift_cotrol = 10
     margin = 25
-    curve_radii_smoothing = 5
+    curve_radii_smoothing = 3
     
     def __init__(self, camera_cal_pickle):
         '''
@@ -65,7 +65,7 @@ class VideoLaneProcessor(object):
     
         image = undistort(image, self.mtx, self.dist)
     
-        preprocessed = preprocess(image)
+        preprocessed = create_binary_image(image)
         
         warped, m_inv = birds_eye_perspective(preprocessed)
         
