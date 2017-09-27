@@ -166,9 +166,13 @@ def get_left_right_centroids(recent_centers, image, window_size, margin=100, smo
         
         left_min_index = int(max(left_center+offset-margin, 0))
         left_max_index = int(min(left_center+offset+margin, image.shape[1]))
-        left_center = np.argmax(conv_signal[left_min_index:left_max_index])
-        left_confidence = conv_signal[left_center + left_min_index] # signal strength
-        left_center = left_center+left_min_index-offset
+        left_signal = conv_signal[left_min_index:left_max_index]
+        if left_signal.any():
+            left_center = np.argmax(left_signal)
+            left_confidence = conv_signal[left_center + left_min_index] # signal strength
+            left_center = left_center+left_min_index-offset
+        else:
+            left_confidence = 0
         
         right_min_index = int(max(right_center+offset-margin, 0))
         right_max_index = int(min(right_center+offset+margin, image.shape[1]))
@@ -180,7 +184,6 @@ def get_left_right_centroids(recent_centers, image, window_size, margin=100, smo
         else:
             right_confidence = 0
         
-        # Drop window if it has no pixels (detection failed)
         # Drop window if it has no pixels (detection  failed)
         if (right_confidence == 0):
             right_center = last_right + right_trend
@@ -221,13 +224,13 @@ def draw_visual_debug(image, window_centroids, window_size):
     return cv2.addWeighted(warpage, .7, template, 1, 0.0) 
 
 # Fit their positions with a polynomial and find camera center
-def fit_lane_lines(image_height, window_centroids, window_size):
+def fit_lane_lines(image_height, window_centroids, window_size, w_factor=1):
     
     left_x = window_centroids[:,0]
     right_x = window_centroids[:,1]
     
     yvals = np.arange(0, image_height)
-    window_width = window_size[0]
+    window_width = window_size[0] * w_factor
     window_height = window_size[1]        
     res_yvals = np.arange(image_height-window_height/2, 0, -window_height)
     left_fit = np.polyfit(res_yvals, left_x, 2)

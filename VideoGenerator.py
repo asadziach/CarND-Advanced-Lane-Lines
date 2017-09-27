@@ -75,7 +75,8 @@ class VideoLaneProcessor(object):
                                                     hunt=self.needs_reset)
         
         lanes, yvals, camera_center = fit_lane_lines(image.shape[0], window_centroids, 
-                                                     VideoLaneProcessor.window_size)
+                                                     VideoLaneProcessor.window_size,
+                                                     w_factor=0.1)
         
         curve_radii = radius_of_curvature(image.shape[0],VideoLaneProcessor.dpm,
                                                     window_centroids, yvals)
