@@ -90,7 +90,7 @@ def undistort(image, mtx, dist):
     return result
 
 # Color a and gradient thresholding    
-def preprocess(image):
+def create_binary_image(image):
     preprocessImage = np.zeros_like(image[:,:,0])
     gradx = abs_sobel_select(image, orient='x', thresh=(12,255))
     grady = abs_sobel_select(image, orient='y', thresh=(25,255))
@@ -152,7 +152,8 @@ def get_left_right_centroids(recent_centers, image, window_size, margin=100, smo
     
     last_right = 0
     last_left = 0
-    
+    right_trend = 0
+    left_trend = 0
     # Move up
     for level in range(start_index,(int)(image.shape[0]/height)):
        
@@ -171,21 +172,28 @@ def get_left_right_centroids(recent_centers, image, window_size, margin=100, smo
         
         right_min_index = int(max(right_center+offset-margin, 0))
         right_max_index = int(min(right_center+offset+margin, image.shape[1]))
-        right_center = np.argmax(conv_signal[right_min_index:right_max_index])
-        right_confidence = conv_signal[right_center + right_min_index] # signal strength
-        right_center = right_center+right_min_index-offset
+        right_signal = conv_signal[right_min_index:right_max_index]
+        if right_signal.any():
+            right_center = np.argmax(right_signal)
+            right_confidence = conv_signal[right_center + right_min_index] # signal strength
+            right_center = right_center+right_min_index-offset
+        else:
+            right_confidence = 0
         
+        # Drop window if it has no pixels (detection failed)
         # Drop window if it has no pixels (detection  failed)
         if (right_confidence == 0):
-            right_center = last_right
+            right_center = last_right + right_trend
   
         if (left_confidence == 0):
-            left_center = last_left
+            left_center = last_left + left_trend
                         
-        centroids.append((left_center,right_center))
-        
+        right_trend = right_center - last_right 
+        left_trend = left_center - last_left                    
         last_right =  right_center
         last_left = left_center
+        
+        centroids.append((left_center,right_center))
     
     recent_centers.append(centroids)
     
@@ -308,7 +316,6 @@ def annotate_results(image, camera_center, dpm, curve_radii):
     cv2.putText(image, 'Camera: '+str(abs(round(center_diff,3)))+'m ('+ side_pos +' of center)', 
                 (50,100), cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,255),2)
 
-# Build the image pipelines            
 def main():
     dest_pickle = pickle.load( open("camera_cal/wide_dist_pickle.p", "rb"  ))
     mtx = dest_pickle["mtx"]
@@ -322,7 +329,7 @@ def main():
         #Debug point
         cv2.imwrite('./output_images/undistorted' + str(idx) + '.jpg', image)
         
-        preprocessed = preprocess(image)
+        preprocessed = create_binary_image(image)
         
         #Debug point
         cv2.imwrite('./output_images/preprocessed' + str(idx) + '.jpg', preprocessed)
@@ -333,7 +340,7 @@ def main():
         cv2.imwrite('./output_images/warped' + str(idx) + '.jpg', warped)
         
         window_size = (50,80)     # Obtained empirically
-        window_centroids = get_left_right_centroids([], warped, window_size)
+        window_centroids = get_left_right_centroids([], warped, window_size, margin=25)
         
         #Debug point   
         tracked = draw_visual_debug(warped, window_centroids, window_size) 
